@@ -1,45 +1,49 @@
-"use strict";
+'use strict';
 
 /**
- * @module template/publish
- * @type {*}
- */
+* @module template/publish
+* @type {*}
+*/
 /*global env: true */
 
-var template = require('jsdoc/template'),
-  doop = require('jsdoc/util/doop'),
-  fs = require('jsdoc/fs'),
-  _ = require('underscore'),
-  path = require('jsdoc/path'),
+var template = require('jsdoc/template');
+var doop = require('jsdoc/util/doop');
+var fs = require('jsdoc/fs');
+var _ = require('underscore');
+var path = require('jsdoc/path');
 
-  taffy = require('taffydb').taffy,
-  handle = require('jsdoc/util/error').handle,
-  helper = require('jsdoc/util/templateHelper'),
-  moment = require("moment"),
-  htmlsafe = helper.htmlsafe,
-  sanitizeHtml = require('sanitize-html'),
-  linkto = helper.linkto,
-  resolveAuthorLinks = helper.resolveAuthorLinks,
-  scopeToPunc = helper.scopeToPunc,
-  hasOwnProp = Object.prototype.hasOwnProperty,
-  conf = env.conf.templates || {},
-  data,
-  view,
-  outdir = env.opts.destination,
-  searchEnabled = conf.search !== false;
+var taffy = require('taffydb').taffy;
+var handle = require('jsdoc/util/error').handle;
+var helper = require('jsdoc/util/templateHelper');
+var moment = require('moment');
+var htmlsafe = helper.htmlsafe;
+var sanitizeHtml = require('sanitize-html');
+var linkto = helper.linkto;
+var resolveAuthorLinks = helper.resolveAuthorLinks;
+var scopeToPunc = helper.scopeToPunc;
+var hasOwnProp = Object.prototype.hasOwnProperty;
+var conf = env.conf.templates || {};
+var data;
+var view;
+var outdir = env.opts.destination;
+var searchEnabled = conf.search !== false;
 
 var globalUrl = helper.getUniqueFilename('global');
 var indexUrl = helper.getUniqueFilename('index');
 
+/*
+* Template options
+*/
 var navOptions = {
   includeDate: conf.includeDate !== false,
+  useLongnameInNav: conf.useLongnameInNav || true,
   logoFile: conf.logoFile,
-  systemName: conf.systemName || "Documentation",
-  navType: conf.navType || "vertical",
-  footer: conf.footer || "",
-  copyright: conf.copyright || "",
-  theme: conf.theme || "simplex",
-  syntaxTheme: conf.syntaxTheme || "default",
+  systemName: conf.systemName || 'Documentation',
+  navType: conf.navType || 'vertical',
+  footer: conf.footer || '',
+  copyright: conf.copyright || '',
+  theme: conf.theme || 'simplex',
+  syntaxTheme: conf.syntaxTheme || 'default',
   linenums: conf.linenums,
   collapseSymbols: conf.collapseSymbols || false,
   inverseNav: conf.inverseNav,
@@ -51,7 +55,33 @@ var navOptions = {
   analytics: conf.analytics || null,
   methodHeadingReturns: conf.methodHeadingReturns === true,
   sort: conf.sort,
-  search: searchEnabled
+  search: searchEnabled,
+  translation: conf.translation || {
+    namespaces: 'Namespaces',
+    namespace: 'Namespace',
+    modules: 'Modules',
+    module: 'Module',
+    classes: 'Classes',
+    class: 'Class',
+    mixins: 'Mixins',
+    mixin: 'Mixin',
+    members: 'Members',
+    events: 'Events',
+    event: 'Event',
+    interfaces: 'Interfaces',
+    interface: 'Interface',
+    tutorials: 'Tutorials',
+    tutorial: 'Tutorial',
+    global: 'Global',
+    index: 'Index',
+    mainPage: 'Main Page',
+    externals: 'Externals',
+    external: 'External',
+    extends: 'Extends',
+    methods: 'Métodos',
+    requires: 'Requires',
+    typeDefinitions: 'Type definitions'
+  }
 };
 var searchableDocuments = {};
 
@@ -62,50 +92,48 @@ var navigationMaster = {
     members: []
   },
   namespace: {
-    title: "Namespaces",
-    link: helper.getUniqueFilename("namespaces.list"),
+    title: navOptions.translation.namespaces,
+    link: helper.getUniqueFilename('namespaces.list'),
     members: []
   },
   module: {
-    title: "Modules",
-    link: helper.getUniqueFilename("modules.list"),
+    title: navOptions.translation.modules,
+    link: helper.getUniqueFilename('modules.list'),
     members: []
   },
   class: {
-    title: "Classes",
+    title: navOptions.translation.classes,
     link: helper.getUniqueFilename('classes.list'),
     members: []
   },
-
   mixin: {
-    title: "Mixins",
-    link: helper.getUniqueFilename("mixins.list"),
+    title: navOptions.translation.mixins,
+    link: helper.getUniqueFilename('mixins.list'),
     members: []
   },
   event: {
-    title: "Events",
-    link: helper.getUniqueFilename("events.list"),
+    title: navOptions.translation.events,
+    link: helper.getUniqueFilename('events.list'),
     members: []
   },
   interface: {
-    title: "Interfaces",
-    link: helper.getUniqueFilename("interfaces.list"),
+    title: navOptions.translation.interfaces,
+    link: helper.getUniqueFilename('interfaces.list'),
     members: []
   },
   tutorial: {
-    title: "Tutorials",
-    link: helper.getUniqueFilename("tutorials.list"),
+    title: navOptions.translation.tutorials,
+    link: helper.getUniqueFilename('tutorials.list'),
     members: []
   },
   global: {
-    title: "Global",
+    title: navOptions.translation.global,
     link: globalUrl,
     members: []
-
   },
   external: {
-    title: "Externals",
-    link: helper.getUniqueFilename("externals.list"),
+    title: navOptions.translation.externals,
+    link: helper.getUniqueFilename('externals.list'),
     members: []
   }
 };
@@ -118,7 +146,7 @@ function tutoriallink(tutorial) {
   return helper.toTutorial(tutorial, null, {
     tag: 'em',
     classname: 'disabled',
-    prefix: 'Tutorial: '
+    prefix: navOptions.translation.tutorial + ': '
   });
 }
 
@@ -146,7 +174,7 @@ function needsSignature(doclet) {
   }
   // typedefs that contain functions get a signature, too
   else if (doclet.kind === 'typedef' && doclet.type && doclet.type.names &&
-    doclet.type.names.length) {
+  doclet.type.names.length) {
     for (var i = 0, l = doclet.type.names.length; i < l; i++) {
       if (doclet.type.names[i].toLowerCase() === 'function') {
         needsSig = true;
@@ -166,17 +194,15 @@ function addSignatureParams(f) {
 
   for (var i = 0, l = params.length; i < l; i++) {
     var element = params[i];
-    var seperator = (i > 0) ? ', ' : '';
+    var separator = (i > 0) ? ', ' : '';
 
-    if (!new RegExp("class=[\"|']"+optionalClass+"[\"|']").test(element)) {
-      f.signature += seperator + element;
+    if (!new RegExp('class=["|\']"+optionalClass+"["|\']').test(element)) {
+      f.signature += separator + element;
     } else {
-      var regExp = new RegExp("<span class=[\"|']"+optionalClass+"[\"|']>(.*?)<\\/span>", "i");
-      f.signature += element.replace(regExp, " $`["+seperator+"$1$']");
+      var regExp = new RegExp('<span class=["|\']"+optionalClass+"["|\']>(.*?)<\\/span>', 'i');
+      f.signature += element.replace(regExp, ' $`[' + separator + '$1$\']');
     }
-
   }
-
   f.signature += ')';
 }
 
@@ -223,7 +249,6 @@ function shortenPaths(files, commonPrefix) {
     .replace(/\\/g, '/');
   });
 
-
   return files;
 }
 
@@ -231,22 +256,27 @@ function getPathFromDoclet(doclet) {
   if (!doclet.meta) {
     return;
   }
-
-  return path.normalize(doclet.meta.path && doclet.meta.path !== 'null' ?
-    doclet.meta.path + '/' + doclet.meta.filename :
-    doclet.meta.filename);
+  if (doclet.meta.path && doclet.meta.path !== 'null') {
+    return doclet.meta.path + '/' + doclet.meta.filename;
+  }
+  return doclet.meta.filename;
 }
 
+/**
+* Generates the search data
+*
+* @param {String} html
+*/
 function searchData(html) {
-  var startOfContent = html.indexOf("<div class=\"container\">");
+  var startOfContent = html.indexOf('<div class="container">');
   if (startOfContent > 0) {
-    var startOfSecondContent = html.indexOf("<div class=\"container\">", startOfContent + 2);
+    var startOfSecondContent = html.indexOf('<div class="container">', startOfContent + 2);
     if (startOfSecondContent > 0) {
       startOfContent = startOfSecondContent;
     }
     html = html.slice(startOfContent);
   }
-  var endOfContent = html.indexOf("<span class=\"copyright\">");
+  var endOfContent = html.indexOf('<span class="copyright">');
   if (endOfContent > 0) {
     html = html.substring(0, endOfContent);
   }
@@ -255,17 +285,27 @@ function searchData(html) {
   return stripped;
 }
 
+/**
+* Generates a document
+*
+* @param {String} docType
+* @param {String} title
+* @param {Array} docs
+* @param {String} filename
+* @param {Boolean} resolveLinks
+*/
 function generate(docType, title, docs, filename, resolveLinks) {
   resolveLinks = resolveLinks === false ? false : true;
 
   var docData = {
     title: title,
     docs: docs,
-    docType: docType
+    docType: docType,
+    translation: navOptions.translation
   };
 
   var outpath = path.join(outdir, filename),
-    html = view.render('container.tmpl', docData);
+  html = view.render('container.tmpl', docData);
 
   if (resolveLinks) {
     html = helper.resolveLinks(html); // turn {@link foo} into <a href="foodoc.html">foo</a>
@@ -273,15 +313,20 @@ function generate(docType, title, docs, filename, resolveLinks) {
 
   if (searchEnabled) {
     searchableDocuments[filename] = {
-      "id": filename,
-      "title": title,
-      "body": searchData(html)
+      'id': filename,
+      'title': title,
+      'body': searchData(html)
     };
   }
 
   fs.writeFileSync(outpath, html, 'utf8');
 }
 
+/**
+* Generates source files
+*
+* @param {Array} sourceFiles
+*/
 function generateSourceFiles(sourceFiles) {
   Object.keys(sourceFiles).forEach(function(file) {
     var source;
@@ -299,21 +344,21 @@ function generateSourceFiles(sourceFiles) {
     }
 
     generate('source', 'Source: ' + sourceFiles[file].shortened, [source], sourceOutfile,
-      false);
+    false);
   });
 }
 
 /**
- * Look for classes or functions with the same name as modules (which indicates that the module
- * exports only that class or function), then attach the classes or functions to the `module`
- * property of the appropriate module doclets. The name of each class or function is also updated
- * for display purposes. This function mutates the original arrays.
- *
- * @private
- * @param {Array.<module:jsdoc/doclet.Doclet>} doclets - The array of classes and functions to
- * check.
- * @param {Array.<module:jsdoc/doclet.Doclet>} modules - The array of module doclets to search.
- */
+* Look for classes or functions with the same name as modules (which indicates that the module
+* exports only that class or function), then attach the classes or functions to the `module`
+* property of the appropriate module doclets. The name of each class or function is also updated
+* for display purposes. This function mutates the original arrays.
+*
+* @private
+* @param {Array.<module:jsdoc/doclet.Doclet>} doclets - The array of classes and functions to
+* check.
+* @param {Array.<module:jsdoc/doclet.Doclet>} modules - The array of module doclets to search.
+*/
 function attachModuleSymbols(doclets, modules) {
   var symbols = {};
 
@@ -331,146 +376,131 @@ function attachModuleSymbols(doclets, modules) {
       .filter(function(symbol) {
         return symbol.description || symbol.kind === 'class';
       })
-        .map(function(symbol) {
-          symbol = doop(symbol);
+      .map(function(symbol) {
+        symbol = doop(symbol);
 
-          if (symbol.kind === 'class' || symbol.kind === 'function') {
-            symbol.name = symbol.name.replace('module:', '(require("') + '"))';
-          }
+        if (symbol.kind === 'class' || symbol.kind === 'function') {
+          symbol.name = symbol.name.replace('module:', '(require("') + '"))';
+        }
 
-          return symbol;
-        });
+        return symbol;
+      });
     }
   });
 }
 
 /**
- * Create the navigation sidebar.
- * @param {object} members The members that will be used to create the sidebar.
- * @param {array<object>} members.classes
- * @param {array<object>} members.externals
- * @param {array<object>} members.globals
- * @param {array<object>} members.mixins
- * @param {array<object>} members.interfaces
- * @param {array<object>} members.modules
- * @param {array<object>} members.namespaces
- * @param {array<object>} members.tutorials
- * @param {array<object>} members.events
- * @return {string} The HTML for the navigation sidebar.
- */
+* Create the navigation sidebar.
+* @param {object} members The members that will be used to create the sidebar.
+* @param {array<object>} members.classes
+* @param {array<object>} members.externals
+* @param {array<object>} members.globals
+* @param {array<object>} members.mixins
+* @param {array<object>} members.interfaces
+* @param {array<object>} members.modules
+* @param {array<object>} members.namespaces
+* @param {array<object>} members.tutorials
+* @param {array<object>} members.events
+* @param {object} options navOptions
+* @return {string} The HTML for the navigation sidebar.
+*/
 function buildNav(members) {
-
   var seen = {};
   var nav = navigationMaster;
   if (members.modules.length) {
-
     members.modules.forEach(function(m) {
       if (!hasOwnProp.call(seen, m.longname)) {
-
-        nav.module.members.push(linkto(m.longname, m.longname.replace("module:", "")));
+        var name = navOptions.useLongnameInNav ? m.longname : m.name;
+        nav.module.members.push(linkto(m.longname, name.replace('module:', '')));
       }
       seen[m.longname] = true;
     });
   }
 
   if (members.externals.length) {
-
     members.externals.forEach(function(e) {
       if (!hasOwnProp.call(seen, e.longname)) {
-
-        nav.external.members.push(linkto(e.longname, e.name.replace(/(^"|"$)/g, '')));
+        var name = navOptions.useLongnameInNav ? e.longname : e.name;
+        nav.external.members.push(linkto(e.longname, name.replace(/(^"|"$)/g, '')));
       }
       seen[e.longname] = true;
     });
   }
 
   if (members.classes.length) {
-
     members.classes.forEach(function(c) {
       if (!hasOwnProp.call(seen, c.longname)) {
-
-        nav.class.members.push(linkto(c.longname, c.longname.replace("module:", "")));
+        var name = navOptions.useLongnameInNav ? c.longname : c.name;
+        nav.class.members.push(linkto(c.longname, name.replace('module:', '')));
       }
       seen[c.longname] = true;
     });
-
   }
 
   if (members.events.length) {
-
     members.events.forEach(function(e) {
       if (!hasOwnProp.call(seen, e.longname)) {
-
-        nav.event.members.push(linkto(e.longname, e.longname.replace("module:", "")));
+        var name = navOptions.useLongnameInNav ? e.longname : e.name;
+        nav.event.members.push(linkto(e.longname, name.replace('module:', '')));
       }
       seen[e.longname] = true;
     });
-
   }
 
   if (members.namespaces.length) {
-
     members.namespaces.forEach(function(n) {
       if (!hasOwnProp.call(seen, n.longname)) {
-
-        nav.namespace.members.push(linkto(n.longname, n.longname.replace("module:", "")));
+        var name = navOptions.useLongnameInNav ? n.longname : n.name;
+        nav.namespace.members.push(linkto(n.longname, name.replace('module:', '')));
       }
       seen[n.longname] = true;
     });
-
   }
 
   if (members.mixins.length) {
-
     members.mixins.forEach(function(m) {
       if (!hasOwnProp.call(seen, m.longname)) {
-
-        nav.mixin.members.push(linkto(m.longname, m.longname.replace("module:", "")));
+        var name = navOptions.useLongnameInNav ? m.longname : m.name;
+        nav.mixin.members.push(linkto(m.longname, name.replace('module:', '')));
       }
       seen[m.longname] = true;
     });
-
   }
 
   if (members.interfaces && members.interfaces.length) {
-
     members.interfaces.forEach(function(m) {
       if (!hasOwnProp.call(seen, m.longname)) {
-
-        nav.interface.members.push(linkto(m.longname, m.longname.replace("module:", "")));
+        var name = navOptions.useLongnameInNav ? m.longname : m.name;
+        nav.interface.members.push(linkto(m.longname, name.replace('module:', '')));
       }
       seen[m.longname] = true;
     });
-
   }
 
   if (members.tutorials.length) {
-
     members.tutorials.forEach(function(t) {
-
       nav.tutorial.members.push(tutoriallink(t.name));
     });
-
   }
 
   if (members.globals.length) {
     members.globals.forEach(function(g) {
       if (g.kind !== 'typedef' && !hasOwnProp.call(seen, g.longname)) {
-
-        nav.global.members.push(linkto(g.longname, g.longname.replace("module:", "")));
+        var name = navOptions.useLongnameInNav ? g.longname : g.name;
+        nav.global.members.push(linkto(g.longname, name.replace('module:', '')));
       }
       seen[g.longname] = true;
     });
 
     // even if there are no links, provide a link to the global page.
     if (nav.global.members.length === 0) {
-      nav.global.members.push(linkto("global", "Global"));
+      nav.global.members.push(linkto('global', navOptions.translation.global));
     }
   }
 
   var topLevelNav = [];
   _.each(nav, function(entry, name) {
-    if (entry.members.length > 0 && name !== "index") {
+    if (entry.members.length > 0 && name !== 'index') {
       topLevelNav.push({
         title: entry.title,
         link: entry.link,
@@ -482,10 +512,10 @@ function buildNav(members) {
 }
 
 /**
- @param {TAFFY} taffyData See <http://taffydb.com/>.
- @param {object} opts
- @param {Tutorial} tutorials
- */
+@param {TAFFY} taffyData See <http://taffydb.com/>.
+@param {object} opts
+@param {Tutorial} tutorials
+*/
 exports.publish = function(taffyData, opts, tutorials) {
   data = taffyData;
 
@@ -539,7 +569,7 @@ exports.publish = function(taffyData, opts, tutorials) {
         var lang = /{@lang (.*?)}/.exec(example);
 
         if (lang && lang[1]) {
-          example = example.replace(lang[0], "");
+          example = example.replace(lang[0], '');
           lang = lang[1];
 
         } else {
@@ -549,7 +579,7 @@ exports.publish = function(taffyData, opts, tutorials) {
         return {
           caption: caption || '',
           code: example,
-          lang: lang || "javascript"
+          lang: lang || 'javascript'
         };
       });
     }
@@ -571,7 +601,7 @@ exports.publish = function(taffyData, opts, tutorials) {
       //Check to see if the array of source file paths already contains
       // the source path, if not then add it
       if (sourceFilePaths.indexOf(sourcePath) === -1) {
-          sourceFilePaths.push(sourcePath)
+        sourceFilePaths.push(sourcePath);
       }
     }
   });
@@ -589,40 +619,40 @@ exports.publish = function(taffyData, opts, tutorials) {
   }
   fs.mkPath(outdir);
 
-	// copy the template's static files to outdir
-	var fromDir = path.join( templatePath, 'static' );
-	var staticFiles = fs.ls( fromDir, 3 );
+  // copy the template's static files to outdir
+  var fromDir = path.join( templatePath, 'static' );
+  var staticFiles = fs.ls( fromDir, 3 );
 
-	staticFiles.forEach( function ( fileName ) {
-		var toDir = fs.toDir( fileName.replace( fromDir, outdir ) );
-		fs.mkPath( toDir );
-		fs.copyFileSync( fileName, toDir );
-	} );
+  staticFiles.forEach(function(fileName) {
+    var toDir = fs.toDir( fileName.replace( fromDir, outdir ) );
+    fs.mkPath( toDir );
+    fs.copyFileSync( fileName, toDir );
+  });
 
-    // copy user-specified static files to outdir
-    var staticFilePaths;
-    var staticFileFilter;
-    var staticFileScanner;
-    if (conf.default.staticFiles) {
-        // The canonical property name is `include`. We accept `paths` for backwards compatibility
-        // with a bug in JSDoc 3.2.x.
-        staticFilePaths = conf.default.staticFiles.include ||
-            conf.default.staticFiles.paths ||
-            [];
-        staticFileFilter = new (require('jsdoc/src/filter')).Filter(conf.default.staticFiles);
-        staticFileScanner = new (require('jsdoc/src/scanner')).Scanner();
+  // copy user-specified static files to outdir
+  var staticFilePaths;
+  var staticFileFilter;
+  var staticFileScanner;
+  if (conf.default.staticFiles) {
+    // The canonical property name is `include`. We accept `paths` for backwards compatibility
+    // with a bug in JSDoc 3.2.x.
+    staticFilePaths = conf.default.staticFiles.include ||
+    conf.default.staticFiles.paths ||
+    [];
+    staticFileFilter = new (require('jsdoc/src/filter')).Filter(conf.default.staticFiles);
+    staticFileScanner = new (require('jsdoc/src/scanner')).Scanner();
 
-        staticFilePaths.forEach(function(filePath) {
-            var extraStaticFiles = staticFileScanner.scan([filePath], 10, staticFileFilter);
+    staticFilePaths.forEach(function(filePath) {
+      var extraStaticFiles = staticFileScanner.scan([filePath], 10, staticFileFilter);
 
-            extraStaticFiles.forEach(function(fileName) {
-                var sourcePath = fs.toDir(filePath);
-                var toDir = fs.toDir( fileName.replace(sourcePath, outdir) );
-                fs.mkPath(toDir);
-                fs.copyFileSync(fileName, toDir);
-            });
-        });
-    }
+      extraStaticFiles.forEach(function(fileName) {
+        var sourcePath = fs.toDir(filePath);
+        var toDir = fs.toDir( fileName.replace(sourcePath, outdir) );
+        fs.mkPath(toDir);
+        fs.copyFileSync(fileName, toDir);
+      });
+    });
+  }
 
   if (sourceFilePaths.length) {
     var payload = navOptions.sourceRootPath;
@@ -696,12 +726,12 @@ exports.publish = function(taffyData, opts, tutorials) {
   view.nav = navigationMaster;
   view.navOptions = navOptions;
   attachModuleSymbols(find({
-      kind: ['class', 'function'],
-      longname: {
-        left: 'module:'
-      }
-    }),
-    members.modules);
+    kind: ['class', 'function'],
+    longname: {
+      left: 'module:'
+    }
+  }),
+  members.modules);
 
   // only output pretty-printed source files if requested; do this before generating any other
   // pages, so the other pages can link to the source files
@@ -710,7 +740,7 @@ exports.publish = function(taffyData, opts, tutorials) {
   }
 
   if (members.globals.length) {
-    generate('global', 'Global', [{
+    generate('global', navOptions.translation.global, [{
       kind: 'globalobj'
     }], globalUrl);
   }
@@ -767,21 +797,21 @@ exports.publish = function(taffyData, opts, tutorials) {
 
   // index page displays information from package.json and lists files
   var files = find({
-      kind: 'file'
-    }),
-    packages = find({
-      kind: 'package'
-    });
+    kind: 'file'
+  }),
+  packages = find({
+    kind: 'package'
+  });
 
-  generate('index', 'Index',
-    packages.concat(
-      [{
-        kind: 'mainpage',
-        readme: opts.readme,
-        longname: (opts.mainpagetitle) ? opts.mainpagetitle : 'Main Page'
-      }]
-    ).concat(files),
-    indexUrl);
+  generate('index', navOptions.translation.index,
+  packages.concat(
+    [{
+      kind: 'mainpage',
+      readme: opts.readme,
+      longname: (opts.mainpagetitle) ? opts.mainpagetitle : navOptions.translation.mainPage
+    }]
+  ).concat(files),
+  indexUrl);
 
   // set up the lists that we'll use to generate pages
   var classes = taffy(members.classes);
@@ -797,42 +827,42 @@ exports.publish = function(taffyData, opts, tutorials) {
         longname: longname
       });
       if (myClasses.length) {
-        generate('class', 'Class: ' + myClasses[0].name, myClasses, helper.longnameToUrl[longname]);
+        generate('class', navOptions.translation.class + ': ' + myClasses[0].name, myClasses, helper.longnameToUrl[longname]);
       }
 
       var myModules = helper.find(modules, {
         longname: longname
       });
       if (myModules.length) {
-        generate('module', 'Module: ' + myModules[0].name, myModules, helper.longnameToUrl[longname]);
+        generate('module', navOptions.translation.module + ': ' + myModules[0].name, myModules, helper.longnameToUrl[longname]);
       }
 
       var myNamespaces = helper.find(namespaces, {
         longname: longname
       });
       if (myNamespaces.length) {
-        generate('namespace', 'Namespace: ' + myNamespaces[0].name, myNamespaces, helper.longnameToUrl[longname]);
+        generate('namespace', navOptions.translation.namespace + ': ' + myNamespaces[0].name, myNamespaces, helper.longnameToUrl[longname]);
       }
 
       var myMixins = helper.find(mixins, {
         longname: longname
       });
       if (myMixins.length) {
-        generate('mixin', 'Mixin: ' + myMixins[0].name, myMixins, helper.longnameToUrl[longname]);
+        generate('mixin', navOptions.translation.mixin + ': ' + myMixins[0].name, myMixins, helper.longnameToUrl[longname]);
       }
 
       var myInterfaces = helper.find(interfaces, {
         longname: longname
       });
       if (myInterfaces.length) {
-        generate('interface', 'Interface: ' + myInterfaces[0].name, myInterfaces, helper.longnameToUrl[longname]);
+        generate('interface', navOptions.translation.interface + ': ' + myInterfaces[0].name, myInterfaces, helper.longnameToUrl[longname]);
       }
 
       var myExternals = helper.find(externals, {
         longname: longname
       });
       if (myExternals.length) {
-        generate('external', 'External: ' + myExternals[0].name, myExternals, helper.longnameToUrl[longname]);
+        generate('external', navOptions.translation.external + ': ' + myExternals[0].name, myExternals, helper.longnameToUrl[longname]);
       }
     }
   }
@@ -844,20 +874,21 @@ exports.publish = function(taffyData, opts, tutorials) {
       header: tutorial.title,
       content: tutorial.parse(),
       children: tutorial.children,
-      docs: null
+      docs: null,
+      translation: navOptions.translation
     };
 
     var tutorialPath = path.join(outdir, filename),
-      html = view.render('tutorial.tmpl', tutorialData);
+    html = view.render('tutorial.tmpl', tutorialData);
 
     // yes, you can use {@link} in tutorials too!
     html = helper.resolveLinks(html); // turn {@link foo} into <a href="foodoc.html">foo</a>
 
     if (searchEnabled) {
       searchableDocuments[filename] = {
-        "id": filename,
-        "title": title,
-        "body": searchData(html)
+        'id': filename,
+        'title': title,
+        'body': searchData(html)
       };
     }
 
@@ -867,29 +898,29 @@ exports.publish = function(taffyData, opts, tutorials) {
   // tutorials can have only one parent so there is no risk for loops
   function saveChildren(node) {
     node.children.forEach(function(child) {
-      generateTutorial('Tutorial: ' + child.title, child, helper.tutorialToUrl(child.name));
+      generateTutorial(navOptions.translation.tutorial + ': ' + child.title, child, helper.tutorialToUrl(child.name));
       saveChildren(child);
     });
   }
 
   function generateQuickTextSearch(templatePath, searchableDocuments, navOptions) {
-      var data = {
-          searchableDocuments: JSON.stringify(searchableDocuments),
-          navOptions: navOptions
-      };
+    var subdata = {
+      searchableDocuments: JSON.stringify(searchableDocuments),
+      navOptions: navOptions
+    };
 
-      var tmplString = fs.readFileSync(templatePath + "/quicksearch.tmpl").toString(),
-            tmpl = _.template(tmplString);
+    var tmplString = fs.readFileSync(templatePath + '/quicksearch.tmpl').toString(),
+    tmpl = _.template(tmplString);
 
-      var html = tmpl(data),
-            outpath = path.join(outdir, "quicksearch.html");
+    var html = tmpl(subdata),
+    outpath = path.join(outdir, 'quicksearch.html');
 
-      fs.writeFileSync(outpath, html, "utf8");
+    fs.writeFileSync(outpath, html, 'utf8');
   }
 
   saveChildren(tutorials);
 
   if (searchEnabled) {
-      generateQuickTextSearch(templatePath + '/tmpl', searchableDocuments, navOptions);
+    generateQuickTextSearch(templatePath + '/tmpl', searchableDocuments, navOptions);
   }
 };

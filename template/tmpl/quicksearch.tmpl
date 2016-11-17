@@ -17,13 +17,10 @@
 
         $(window).on("message", function(msg) {
             var msgData = msg.originalEvent.data;
-
             if (msgData.msgid != "docstrap.quicksearch.start") {
                 return;
             }
-
             var results = Searcher.search(msgData.searchTerms);
-
             window.parent.postMessage({"results": results, "msgid": "docstrap.quicksearch.done"}, "*");
         });
     </script>

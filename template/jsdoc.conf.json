@@ -5,6 +5,7 @@
   "plugins": ["plugins/markdown"],
   "templates": {
     "logoFile": "",
+    "useLongnameInNav": true,
     "cleverLinks": false,
     "monospaceLinks": false,
     "dateFormat": "ddd MMM Do YYYY",
@@ -19,7 +20,28 @@
     "collapseSymbols": false,
     "inverseNav": true,
     "protocol": "html://",
-    "methodHeadingReturns": false
+    "methodHeadingReturns": false,
+    "translation": {
+      "namespaces": "Namespaces",
+      "namespace": "Namespace",
+      "modules": "Modules",
+      "module": "Module",
+      "classes": "Classes",
+      "class": "Class",
+      "mixins": "Mixins",
+      "mixin": "Mixin",
+      "events": "Events",
+      "event": "Event",
+      "interfaces": "Interfaces",
+      "interface": "Interface",
+      "tutorials": "Tutorials",
+      "tutorial": "Tutorial",
+      "global": "Global",
+      "index": "Index",
+      "mainPage": "Main Page",
+      "externals": "Externals",
+      "external": "External"
+    }
   },
   "markdown": {
     "parser": "gfm",

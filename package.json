@@ -5,6 +5,7 @@
   "devDependencies": {
     "async": "~2.0.1",
     "grunt": "~1.0.1",
+    "grunt-cli": "^1.2.0",
     "grunt-contrib-copy": "~1.0.0",
     "grunt-contrib-less": "~1.4.0",
     "grunt-contrib-uglify": "~2.0.0",
@@ -33,6 +34,17 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/docstrap/docstrap.git"
+  },
+  "scripts": {
+    "bower": "bower install",
+    "docs": "grunt docs",
+    "testdocs": "grunt testdocs",
+    "build": "grunt build",
+    "apply": "grunt apply",
+    "start": "grunt",
+    "dev": "grunt dev",
+    "examples": "grunt examples",
+    "bootswatch": "grunt bootswatch"
   },
   "main": "./template/publish.js",
   "dependencies": {
